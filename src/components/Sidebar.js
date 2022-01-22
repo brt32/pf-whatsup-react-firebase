@@ -1,13 +1,85 @@
-import React from "react";
+import React, { useState } from "react";
+import { NavLink, Route, Switch } from "react-router-dom";
+import SidebarList from "./SidebarList";
 import { Avatar, IconButton } from "@material-ui/core";
-import { Add, ExitToApp, SearchOutlined } from "@material-ui/icons";
-import { auth } from "../firebase";
+import {
+  Add,
+  ExitToApp,
+  SearchOutlined,
+  Home,
+  Message,
+  PeopleAlt,
+} from "@material-ui/icons";
+import { auth, createTimestamp, db } from "../firebase";
 import "./Sidebar.css";
+import useRooms from "../hooks/useRooms";
+import useUsers from "../hooks/useUsers";
+import useChats from "../hooks/useChats";
 
 export default function Sidebar({ user, page }) {
+  const rooms = useRooms();
+  const users = useUsers(user);
+  const chats = useChats(user);
+
+  // console.log({ rooms, users, chats });
+
+  const [menu, setMenu] = useState(1);
+  const [searchResults, setSearchResults] = useState([]);
+
   const signOut = () => {
     auth.signOut();
   };
+
+  const createRoom = () => {
+    const roomName = prompt("Type the name of your room");
+    if (roomName?.trim()) {
+      db.collection("rooms").add({
+        name: roomName,
+        timestamp: createTimestamp(),
+      });
+    }
+  };
+
+  const searchUsersAndRooms = async (e) => {
+    e.preventDefault();
+    const query = e.target.elements.search.value;
+    const userSnapshot = await db
+      .collection("users")
+      .where("name", "==", query)
+      .get();
+    const roomSnapshot = await db
+      .collection("rooms")
+      .where("name", "==", query)
+      .get();
+
+    const userResults = userSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    const roomResults = roomSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    const searchResults = [...userResults, ...roomResults];
+    setMenu(4);
+    setSearchResults(searchResults);
+  };
+
+  let Nav;
+  if (page.isMobile) {
+    Nav = NavLink;
+  } else {
+    Nav = (props) => (
+      <div
+        className={`${props.activeClass ? "sidebar__menu--selected" : ""}`}
+        onClick={props.onClick}
+      >
+        {props.children}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -27,7 +99,10 @@ export default function Sidebar({ user, page }) {
       </div>
 
       <div className="sidebar__search">
-        <form className="sidebar__search--container">
+        <form
+          onSubmit={searchUsersAndRooms}
+          className="sidebar__search--container"
+        >
           <SearchOutlined />
           <input
             placeholder="Search for users or rooms"
@@ -37,8 +112,71 @@ export default function Sidebar({ user, page }) {
         </form>
       </div>
 
+      <div className="sidebar__menu">
+        <Nav
+          to="/chats"
+          onClick={() => setMenu(1)}
+          activeClassName="sidebar__menu--selected"
+          activeClass={menu === 1}
+        >
+          <div className="sidebar__menu--home">
+            <Home />
+            <div className="sidebar__menu--line" />
+          </div>
+        </Nav>
+
+        <Nav
+          to="/rooms"
+          onClick={() => setMenu(2)}
+          activeClassName="sidebar__menu--selected"
+          activeClass={menu === 2}
+        >
+          <div className="sidebar__menu--rooms">
+            <Message />
+            <div className="sidebar__menu--line" />
+          </div>
+        </Nav>
+
+        <Nav
+          to="/users"
+          onClick={() => setMenu(3)}
+          activeClassName="sidebar__menu--selected"
+          activeClass={menu === 3}
+        >
+          <div className="sidebar__menu--users">
+            <PeopleAlt />
+            <div className="sidebar__menu--line" />
+          </div>
+        </Nav>
+      </div>
+
+      {page.isMobile ? (
+        <Switch>
+          <Route path="/chats">
+            <SidebarList title="Chats" data={chats} />
+          </Route>
+          <Route path="/rooms">
+            <SidebarList title="Rooms" data={rooms} />
+          </Route>
+          <Route path="/users">
+            <SidebarList title="Users" data={users} />
+          </Route>
+          <Route path="/search">
+            <SidebarList title="Search Results" data={searchResults} />
+          </Route>
+        </Switch>
+      ) : menu === 1 ? (
+        <SidebarList title="Chats" data={chats} />
+      ) : menu === 2 ? (
+        <SidebarList title="Rooms" data={rooms} />
+      ) : menu === 3 ? (
+        <SidebarList title="Users" data={users} />
+      ) : menu === 4 ? (
+        <SidebarList title="Search Results" data={searchResults} />
+      ) : null}
+
       <div className="sidebar__chat--addRoom">
-        <IconButton>
+        <IconButton onClick={createRoom}>
           <Add />
         </IconButton>
       </div>
