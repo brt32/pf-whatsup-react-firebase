@@ -1,7 +1,13 @@
 import { CircularProgress } from "@material-ui/core";
 import AudioPlayer from "./AudioPlayer";
 
-export default function ChatMessages({ messages, user, roomId }) {
+export default function ChatMessages({
+  messages,
+  user,
+  roomId,
+  audioId,
+  setAudioId,
+}) {
   if (!messages) return null;
 
   return messages?.map((message) => {
@@ -31,6 +37,8 @@ export default function ChatMessages({ messages, user, roomId }) {
             roomId={roomId}
             id={message.id}
             audioUrl={message.audioUrl}
+            audioId={audioId}
+            setAudioId={setAudioId}
           />
         ) : (
           <span className="chat__message--message">{message.message}</span>
